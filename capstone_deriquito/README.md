@@ -1,10 +1,11 @@
-# capstone_deriquito
+# Book Borrowing Tracker
 
-A new Flutter project.
+Ashira Jay N. Deriquito
+Work Station #11
 
-## Getting Started
+## Description
 
-This project is a starting point for a Flutter application.
+A flutter app to track books where you can browse, search, borrow, and return them. It has a history list and more.
 
 A few resources to get you started if this is your first Flutter project:
 
