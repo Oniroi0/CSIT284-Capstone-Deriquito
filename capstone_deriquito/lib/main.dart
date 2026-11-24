@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'colors.dart';
 import 'screens/home_screen.dart';
 
 void main() {
@@ -13,16 +14,16 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Book Borrowing Tracker',
       theme: ThemeData(
-        scaffoldBackgroundColor: const Color(0xFFEFE7DA),
+        scaffoldBackgroundColor: bone,
         colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF0F372B),
-          primary: const Color(0xFF0F372B),
-          secondary: const Color(0xFFE8392B),
-          surface: const Color(0xFFEFE7DA),
+          seedColor: bottleGreen,
+          primary: bottleGreen,
+          surface: bone,
         ),
         appBarTheme: const AppBarTheme(
-          backgroundColor: Color(0xFF0F372B),
-          foregroundColor: Color(0xFFEFE7DA),
+          backgroundColor: bone,
+          foregroundColor: bottleGreen,
+          elevation: 0,
         ),
       ),
       home: const HomeScreen(),
