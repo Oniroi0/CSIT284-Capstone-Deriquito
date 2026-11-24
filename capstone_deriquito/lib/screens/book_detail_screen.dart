@@ -1,11 +1,11 @@
 import 'package:flutter/material.dart';
-import '../models/book.dart';
- 
+import 'package:capstone_deriquito/models/book.dart';
+
 class BookDetailScreen extends StatelessWidget {
   final Book book;
- 
+
   const BookDetailScreen({super.key, required this.book});
- 
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
-import 'colors.dart';
-import 'screens/home_screen.dart';
+import 'package:capstone_deriquito/colors.dart';
+import 'package:capstone_deriquito/screens/home_screen.dart';
 
 void main() {
   runApp(const MyApp());
