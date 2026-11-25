@@ -20,4 +20,16 @@ class Book {
   final String? imageUrl;
   bool isBorrowed;
   DateTime? dueDate;
+ 
+  Map<String, dynamic> toMap() {
+    return {
+      'title': title,
+      'author': author,
+      'genre': genre.title,
+      'description': description,
+      'imageUrl': imageUrl,
+      'isBorrowed': isBorrowed,
+      'dueDate': dueDate?.toIso8601String(),
+    };
+  }
 }

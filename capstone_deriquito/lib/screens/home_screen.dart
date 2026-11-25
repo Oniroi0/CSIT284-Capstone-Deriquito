@@ -1,6 +1,11 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:capstone_deriquito/colors.dart';
 import 'package:capstone_deriquito/data/dummy_books.dart';
+import 'package:capstone_deriquito/data/firebase_url.dart';
+import 'package:capstone_deriquito/data/genres.dart';
 import 'package:capstone_deriquito/models/book.dart';
 import 'package:capstone_deriquito/models/history_entry.dart';
 import 'package:capstone_deriquito/widgets/book_card.dart';
@@ -16,6 +21,9 @@ class _HomeScreenState extends State<HomeScreen> {
   final searchController = TextEditingController();
   String filter = 'All';
   List<HistoryEntry> history = [];
+  List<Book> allBooks = [];
+  bool isLoading = true;
+  String? error;
 
   final months = [
     'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
@@ -23,16 +31,159 @@ class _HomeScreenState extends State<HomeScreen> {
   ];
 
   @override
+  void initState() {
+    super.initState();
+    loadBooks();
+  }
+
+  @override
   void dispose() {
     searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> loadBooks() async {
+    setState(() {
+      isLoading = true;
+      error = null;
+    });
+
+    try {
+      final url = Uri.https(firebaseHost, 'books.json');
+      final response = await http.get(url);
+      if (!mounted) return;
+
+      if (response.statusCode >= 400) {
+        setState(() {
+          error = 'Failed to load books. Please try again later.';
+          isLoading = false;
+        });
+        return;
+      }
+
+      if (response.body == 'null') {
+        await seedBooks();
+        return;
+      }
+
+      final Map<String, dynamic> data = json.decode(response.body);
+      List<Book> loadedBooks = [];
+
+      for (final item in data.entries) {
+        final map = item.value;
+        final genre = genres.values.firstWhere((g) => g.title == map['genre']);
+
+        DateTime? dueDate;
+        if (map['dueDate'] != null) {
+          dueDate = DateTime.parse(map['dueDate']);
+        }
+
+        loadedBooks.add(
+          Book(
+            id: item.key,
+            title: map['title'],
+            author: map['author'],
+            genre: genre,
+            description: map['description'],
+            imageUrl: map['imageUrl'],
+            isBorrowed: map['isBorrowed'] ?? false,
+            dueDate: dueDate,
+          ),
+        );
+      }
+
+      setState(() {
+        allBooks = loadedBooks;
+        isLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        error = 'Something went wrong. Please try again later.';
+        isLoading = false;
+      });
+    }
+  }
+
+  Future<void> seedBooks() async {
+    for (final book in dummyBooks) {
+      final url = Uri.https(firebaseHost, 'books/${book.id}.json');
+      final response = await http.put(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode(book.toMap()),
+      );
+
+      if (response.statusCode >= 400) {
+        if (!mounted) return;
+        setState(() {
+          error = 'Failed to save the starting books. Check your Firebase rules.';
+          isLoading = false;
+        });
+        return;
+      }
+    }
+    await loadBooks();
+  }
+
+  Future<bool> saveBookStatus(
+    Book book,
+    bool isBorrowed,
+    DateTime? dueDate,
+  ) async {
+    final url = Uri.https(firebaseHost, 'books/${book.id}.json');
+    final response = await http.patch(
+      url,
+      body: json.encode({
+        'isBorrowed': isBorrowed,
+        'dueDate': dueDate?.toIso8601String(),
+      }),
+    );
+    return response.statusCode < 400;
+  }
+
+  void showMessage(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  Future<void> borrowBook(Book book) async {
+    final dueDate = DateTime.now().add(const Duration(days: 7));
+    final saved = await saveBookStatus(book, true, dueDate);
+    if (!mounted) return;
+
+    if (!saved) {
+      showMessage('Could not borrow the book. Please try again.');
+      return;
+    }
+
+    setState(() {
+      book.isBorrowed = true;
+      book.dueDate = dueDate;
+      history.insert(0, HistoryEntry(title: book.title, action: 'Borrowed'));
+    });
+  }
+
+  Future<void> returnBook(Book book) async {
+    final saved = await saveBookStatus(book, false, null);
+    if (!mounted) return;
+
+    if (!saved) {
+      showMessage('Could not return the book. Please try again.');
+      return;
+    }
+
+    setState(() {
+      book.isBorrowed = false;
+      book.dueDate = null;
+      history.insert(0, HistoryEntry(title: book.title, action: 'Returned'));
+    });
   }
 
   List<Book> getFilteredBooks() {
     List<Book> result = [];
     String query = searchController.text.toLowerCase();
 
-    for (Book book in dummyBooks) {
+    for (Book book in allBooks) {
       bool matchesSearch = book.title.toLowerCase().contains(query) ||
           book.author.toLowerCase().contains(query);
 
@@ -45,22 +196,6 @@ class _HomeScreenState extends State<HomeScreen> {
       }
     }
     return result;
-  }
-
-  void borrowBook(Book book) {
-    setState(() {
-      book.isBorrowed = true;
-      book.dueDate = DateTime.now().add(const Duration(days: 7));
-      history.insert(0, HistoryEntry(title: book.title, action: 'Borrowed'));
-    });
-  }
-
-  void returnBook(Book book) {
-    setState(() {
-      book.isBorrowed = false;
-      book.dueDate = null;
-      history.insert(0, HistoryEntry(title: book.title, action: 'Returned'));
-    });
   }
 
   void resetFilters() {
@@ -237,15 +372,61 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  Widget buildBody(List<Book> borrowedBooks) {
+    if (isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    if (error != null) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(error!),
+            TextButton(
+              onPressed: loadBooks,
+              child: const Text('Try again'),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return SingleChildScrollView(
+      padding: const EdgeInsets.all(16),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth >= 800) {
+            return Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(flex: 65, child: buildCatalog()),
+                const SizedBox(width: 16),
+                Expanded(flex: 35, child: buildLedger(borrowedBooks)),
+              ],
+            );
+          }
+          return Column(
+            children: [
+              buildCatalog(),
+              const SizedBox(height: 16),
+              buildLedger(borrowedBooks),
+            ],
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     List<Book> borrowedBooks = [];
-    for (Book book in dummyBooks) {
+    for (Book book in allBooks) {
       if (book.isBorrowed) {
         borrowedBooks.add(book);
       }
     }
-    int availableCount = dummyBooks.length - borrowedBooks.length;
+    int availableCount = allBooks.length - borrowedBooks.length;
 
     return Scaffold(
       body: SafeArea(
@@ -294,32 +475,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 ],
               ),
             ),
-            Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(16),
-                child: LayoutBuilder(
-                  builder: (context, constraints) {
-                    if (constraints.maxWidth >= 800) {
-                      return Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(flex: 65, child: buildCatalog()),
-                          const SizedBox(width: 16),
-                          Expanded(flex: 35, child: buildLedger(borrowedBooks)),
-                        ],
-                      );
-                    }
-                    return Column(
-                      children: [
-                        buildCatalog(),
-                        const SizedBox(height: 16),
-                        buildLedger(borrowedBooks),
-                      ],
-                    );
-                  },
-                ),
-              ),
-            ),
+            Expanded(child: buildBody(borrowedBooks)),
           ],
         ),
       ),
