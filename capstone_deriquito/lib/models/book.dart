@@ -6,6 +6,7 @@ class Book {
     required this.title,
     required this.author,
     required this.genre,
+    this.imageUrl,
     this.isBorrowed = false,
     this.dueDate,
   });
@@ -14,6 +15,7 @@ class Book {
   final String title;
   final String author;
   final Genre genre;
+  final String? imageUrl;
   bool isBorrowed;
   DateTime? dueDate;
 }

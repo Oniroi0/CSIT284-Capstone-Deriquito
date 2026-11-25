@@ -2,7 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:capstone_deriquito/colors.dart';
 import 'package:capstone_deriquito/models/book.dart';
 import 'package:capstone_deriquito/screens/book_detail_screen.dart';
-
+import 'package:capstone_deriquito/widgets/book_cover.dart';
+ 
 class BookCard extends StatelessWidget {
   const BookCard({
     super.key,
@@ -10,17 +11,17 @@ class BookCard extends StatelessWidget {
     required this.onBorrow,
     required this.onReturn,
   });
-
+ 
   final Book book;
   final VoidCallback onBorrow;
   final VoidCallback onReturn;
-
+ 
   @override
   Widget build(BuildContext context) {
     String badgeText = 'Available';
     Color badgeColor = softGreen;
     Color badgeTextColor = bottleGreen;
-
+ 
     if (book.isBorrowed) {
       if (book.dueDate!.isBefore(DateTime.now())) {
         badgeText = 'Overdue';
@@ -34,7 +35,7 @@ class BookCard extends StatelessWidget {
         badgeTextColor = vermilion;
       }
     }
-
+ 
     return Card(
       color: bone,
       elevation: 0,
@@ -44,6 +45,7 @@ class BookCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
       ),
       child: ListTile(
+        leading: BookCover(imageUrl: book.imageUrl, width: 48, height: 72),
         isThreeLine: true,
         title: Text(
           book.title,
